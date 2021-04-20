@@ -1,6 +1,6 @@
 # Data Science Template
 
-### A personally customed cookiecutter template based for data science projects
+### A personally customed cookiecutter template for my data science projects
 
 _A logical, reasonably standardized, but flexible project structure for doing and sharing data science work._
 
