@@ -1,8 +1,6 @@
 ## Notebooks
 ---- 
 
-The Following notebooks were used:
+1. `1-colab_notebook_template.ipynb` - Notebook template for a notebook that will be used with Google Colab. 
 
-1. `1-initials-notebook2.ipynb` - Notebook description
-
-   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/googlecolab/colabtools/blob/master/notebooks/colab-github-demo.ipynb)
+   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/simonsanvil/data-science-template/blob/master/{{ cookiecutter.repo_name }}/notebooks/1-colab_notebook_template.ipynb)
