@@ -2,6 +2,7 @@
 -e .
 
 # external requirements
+pdoc3
 click
 Sphinx
 coverage
