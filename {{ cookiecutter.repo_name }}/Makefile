@@ -1,33 +1,56 @@
-.PHONY: clean data lint requirements sync_data_to_s3 sync_data_from_s3
+.PHONY: environment clean data lint requirements sync_to_cloud sync_from_cloud release docs
 
 #################################################################################
 # GLOBALS                                                                       #
 #################################################################################
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUCKET = {{ cookiecutter.s3_bucket }}
-PROFILE = {{ cookiecutter.aws_profile }}
-PROJECT_NAME = {{ cookiecutter.repo_name }}
-PYTHON_INTERPRETER = {{ cookiecutter.python_interpreter }}
-
+PROJECT_NAME = {{ cookiecutter.python_package }}
+PYTHON_INTERPRETER = python3
+PDOC_TEMPLATE_DIR = docs/pdoc_template
 ifeq (,$(shell which conda))
 HAS_CONDA=False
 else
 HAS_CONDA=True
 endif
+include .env
+DOCS_CREATED = $(shell [ -d docs/{{ cookiecutter.python_package }} ] && echo True || echo False)
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
 
+## Set up python interpreter environment
+environment:
+ifeq (True,$(HAS_CONDA))
+		@echo ">>> ${GREEN}Detected conda, creating conda environment.${NC}"
+ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
+	conda create --name $(PROJECT_NAME) python=3
+else
+	conda create --name $(PROJECT_NAME) python=2.7
+endif
+		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
+else
+	$(PYTHON_INTERPRETER) -m venv ./.venv
+	@echo ">>> New virtualenv created. Activate with:\nsource .venv/bin/activate
+endif
+
+## Test python environment is setup correctly
+test_environment:
+	$(PYTHON_INTERPRETER) src/tests/test_environment.py
+
 ## Install Python Dependencies
 requirements: test_environment
-	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
-	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+	pip install -U pip setuptools wheel
+	pip install -r requirements.txt
 
 ## Make Dataset
 data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
+	$(PYTHON_INTERPRETER) src//data/make_dataset.py data/raw data/processed
 
 ## Delete all compiled Python files
 clean:
@@ -38,43 +61,52 @@ clean:
 lint:
 	flake8 src
 
-## Upload Data to S3
-sync_data_to_s3:
-ifeq (default,$(PROFILE))
-	aws s3 sync data/ s3://$(BUCKET)/data/
-else
-	aws s3 sync data/ s3://$(BUCKET)/data/ --profile $(PROFILE)
-endif
+## Make the documentation with pdoc3
+docs:
+	pdoc3 --html -o docs --template-dir $(PDOC_TEMPLATE_DIR) --force src/{{ cookiecutter.python_package }}
 
-## Download Data from S3
-sync_data_from_s3:
-ifeq (default,$(PROFILE))
-	aws s3 sync s3://$(BUCKET)/data/ data/
-else
-	aws s3 sync s3://$(BUCKET)/data/ data/ --profile $(PROFILE)
-endif
+## Serve the documentation to localhost:8000
+serve_docs: docs
+	@echo ">>> ${GREEN}Serving {{ cookiecutter.python_package }} docs at http://localhost:8000${NC}"
+	python -m http.server -d docs/{{ cookiecutter.python_package }}
 
-## Set up python interpreter environment
-create_environment:
-ifeq (True,$(HAS_CONDA))
-		@echo ">>> Detected conda, creating conda environment."
-ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
-	conda create --name $(PROJECT_NAME) python=3
-else
-	conda create --name $(PROJECT_NAME) python=2.7
-endif
-		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
-else
-	$(PYTHON_INTERPRETER) -m pip install -q virtualenv virtualenvwrapper
-	@echo ">>> Installing virtualenvwrapper if not already installed.\nMake sure the following lines are in shell startup file\n\
-	export WORKON_HOME=$$HOME/.virtualenvs\nexport PROJECT_HOME=$$HOME/Devel\nsource /usr/local/bin/virtualenvwrapper.sh\n"
-	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER)"
-	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
-endif
+	
+## Push {{ cookiecutter.python_package }} release
+release:
+	$(info "Pushing {{ cookiecutter.python_package }} release")
+	python dev_tools/make_release.py
 
-## Test python environment is setup correctly
-test_environment:
-	$(PYTHON_INTERPRETER) test_environment.py
+{% if cookiecutter.cloud_provider != '' -%}
+## Upload Data to cloud storage
+sync_to_cloud:
+	$(info "Uploading data to cloud storage")
+	{% if cookiecutter.cloud_provider == 'aws' -%}
+	ifeq (default,$(AWS_PROFILE,default))
+		aws s3 sync data/ s3://$(AWS_BUCKET)/data/
+	else
+		aws s3 sync data/ s3://$(AWS_BUCKET)/data/ --profile $(AWS_PROFILE)
+	endif
+	{% elif cookiecutter.cloud_provider == 'gcp' -%}
+	gsutil -m cp -r data/ gs://$(GCP_BUCKET)/data/
+	{% elif cookiecutter.cloud_provider == 'azure' -%}
+	az storage blob directory upload -c $(AZURE_STORAGE_CONTAINER) -s data/ -d data/ --recursive
+	{%- endif %}
+	
+## Download Data from cloud storage
+sync_from_cloud:
+	$(info "Downloading data from cloud storage")
+	{% if cookiecutter.cloud_provider == 'aws' -%}
+	ifeq (default,$(AWS_PROFILE,default))
+		aws s3 sync s3://$(AWS_BUCKET)/data/ data/
+	else
+		aws s3 sync s3://$(AWS_BUCKET)/data/ data/ --profile $(AWS_PROFILE)
+	endif
+	{% elif cookiecutter.cloud_provider == 'gcp' -%}
+	gsutil -m cp -r gs://$(GCP_BUCKET)/data/ data/
+	{% elif cookiecutter.cloud_provider == 'azure' -%}
+	az storage blob directory download -c $(AZURE_STORAGE_CONTAINER) -s data/ -d data/ --recursive
+	{%- endif %}
+{% endif %}
 
 #################################################################################
 # PROJECT RULES                                                                 #
@@ -142,3 +174,4 @@ help:
 		printf "\n"; \
 	}' \
 	| more $(shell test $(shell uname) = Darwin && echo '--no-init --raw-control-chars')
+

@@ -3,14 +3,10 @@
 
 # external requirements
 pdoc3
-click
-Sphinx
-coverage
-awscli
+typer
 flake8
+black
 python-dotenv>=0.5.1
-{% if cookiecutter.python_interpreter != 'python3' %}
 
-# backwards compatibility
-pathlib2
-{% endif %}
+# config tools
+ml-collections>=0.1.1

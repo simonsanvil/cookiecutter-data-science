@@ -1,0 +1,40 @@
+[project]
+name = "{{ cookiecutter.python_package }}"
+version = '0.1.0'
+description="{{ cookiecutter.description }}"
+readme = "README.md"
+authors = [
+  {name = "{{ cookiecutter.author_name }}"},
+]
+maintainers = [
+  {name = "{{ cookiecutter.author_name }}"},
+]
+dependencies=[]
+requires-python = ">=3.7,<3.11"
+
+[projects.urls]
+# docs = ""
+
+
+[project.optional-dependencies]
+dev = ["pytest", "pdoc3", "flake8", "black", "toml"]
+
+
+[tool.black]
+line-length = 88
+target-version = ['py36', 'py37', 'py38']
+include = '\.pyi?$'
+exclude = '''
+/(
+  \.toml
+  |\.sh
+  |\.git
+  |\.ini
+  |Dockerfile
+  |Jenkinfile
+)/
+'''
+
+[build-system]
+requires = ["setuptools", "wheel", "toml", "build"]
+build-backend = "setuptools.build_meta"
