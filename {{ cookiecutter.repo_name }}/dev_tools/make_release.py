@@ -259,5 +259,4 @@ if __name__ == "__main__":
         PushToGitHub(),
     ]:
         step.run(context)
-    BumpVersion()
     print("Release is valid.")
